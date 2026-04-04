@@ -4,6 +4,8 @@ target/
 !**/src/main/**/target/
 !**/src/test/**/target/
 frontend/node/
+main.pdf
+main.txt
 
 ### STS ###
 .apt_generated

@@ -1,0 +1,62 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { 
+  --primary: #059669; /* Emerald 600 */ 
+}
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.4s ease;
+}
+
+/* Light Mode: Airy, frosted workspace */
+.bg-mesh-light { 
+  background: 
+    radial-gradient(at 0% 0%, hsla(150, 100%, 94%, 1) 0px, transparent 50%), 
+    radial-gradient(at 100% 0%, hsla(160, 100%, 90%, 1) 0px, transparent 50%), 
+    radial-gradient(at 50% 100%, hsla(140, 100%, 96%, 1) 0px, transparent 50%), 
+    #f8fafc; 
+}
+
+/* Dark Mode: Deep, premium obsidian */
+.dark .bg-mesh-dark { 
+  background: 
+    radial-gradient(at 0% 0%, hsla(160, 100%, 8%, 1) 0px, transparent 50%), 
+    radial-gradient(at 100% 100%, hsla(150, 100%, 6%, 1) 0px, transparent 50%), 
+    #020617; 
+}
+
+/* Professional Glassmorphism */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(24px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 4px 24px -2px rgba(16, 185, 129, 0.05);
+}
+.dark .glass-panel {
+  background: rgba(15, 23, 42, 0.5);
+  backdrop-filter: blur(24px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+}
+
+/* Premium Inner Glow for Depth */
+.inner-glow { position: relative; }
+.inner-glow::after {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; padding: 1px;
+  background: linear-gradient(135deg, rgba(255,255,255,0.6), transparent, rgba(255,255,255,0.05));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none;
+}
+.dark .inner-glow::after { background: linear-gradient(135deg, rgba(255,255,255,0.1), transparent, rgba(255,255,255,0.01)); }
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-thumb { background: rgba(16, 185, 129, 0.25); border-radius: 10px; }
+::-webkit-scrollbar-track { background: transparent; }

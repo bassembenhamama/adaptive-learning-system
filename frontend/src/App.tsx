@@ -1,12 +1,13 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { Moon, Sun, Menu } from 'lucide-react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Menu } from 'lucide-react';
 
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 
 import { Sidebar } from './components/layout/Sidebar';
 import { LoadingSpinner } from './components/ui/LoadingSpinner';
+import { ThemeToggle } from './components/ui/ThemeToggle';
 import { cn } from './utils';
 
 import { LandingPage } from './views/landing/LandingPage';
@@ -34,7 +35,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 };
 
 const AuthenticatedLayout = () => {
-  const { isDark, toggleTheme } = useTheme();
+  const { isDark } = useTheme();
 
   return (
     <div className={cn("min-h-screen flex transition-colors duration-400", isDark ? "bg-mesh-dark dark" : "bg-mesh-light")}>
@@ -45,16 +46,7 @@ const AuthenticatedLayout = () => {
             <Menu className="w-5 h-5 text-slate-700 dark:text-white" />
           </button>
           <div className="hidden lg:flex items-center gap-2" />
-          <button
-            onClick={toggleTheme}
-            className="w-10 h-10 glass-panel rounded-xl flex items-center justify-center hover:scale-105 transition-transform"
-            title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-          >
-            {isDark
-              ? <Sun className="w-4 h-4 text-slate-400 hover:text-amber-400" />
-              : <Moon className="w-4 h-4 text-slate-500" />
-            }
-          </button>
+          <ThemeToggle />
         </header>
         <div className="flex-1 overflow-y-auto pb-8 pr-2">
           <DashboardRoutes />

@@ -5,6 +5,7 @@ import { ArrowRight, Brain, BarChart3, BookOpen, MessageCircle, Sparkles, Shield
 import { ALSLogo } from '../../components/ui/ALSLogo';
 import { ActionButton } from '../../components/ui/ActionButton';
 import { GlassContainer } from '../../components/ui/GlassContainer';
+import { ThemeToggle } from '../../components/ui/ThemeToggle';
 
 const fadeUp = (delay: number = 0) => ({
   initial: { opacity: 0, y: 24 },
@@ -82,6 +83,7 @@ export const LandingPage = () => {
               </div>
             </div>
             <div className="flex items-center gap-3">
+              <ThemeToggle />
               <ActionButton variant="ghost" size="sm" onClick={() => navigate('/login')}>
                 Log In
               </ActionButton>

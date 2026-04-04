@@ -7,6 +7,7 @@ import { Input } from '../../components/ui/Input';
 import { ActionButton } from '../../components/ui/ActionButton';
 import { ALSLogo } from '../../components/ui/ALSLogo';
 import { useAuth } from '../../context/AuthContext';
+import { ThemeToggle } from '../../components/ui/ThemeToggle';
 
 interface AuthViewProps {
   initialMode?: 'login' | 'register';
@@ -70,14 +71,15 @@ export const AuthView = ({ initialMode = 'login' }: AuthViewProps) => {
         animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-[420px] relative z-20"
       >
-        {/* Back to Landing */}
-        <div className="mb-6">
+        {/* Back to Landing + Theme Toggle */}
+        <div className="mb-6 flex items-center justify-between">
           <Link
             to="/"
             className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" /> Back to home
           </Link>
+          <ThemeToggle />
         </div>
 
         <div className="text-center mb-8">

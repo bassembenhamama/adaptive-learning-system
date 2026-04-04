@@ -34,3 +34,8 @@ build/
 
 ### VS Code ###
 .vscode/
+.env 
+.env.*
+
+### Data Initializer (dev-only seed data) ###
+src/main/java/dz/edu/univconstantine2/ntic/als/config/DataInitializer.java

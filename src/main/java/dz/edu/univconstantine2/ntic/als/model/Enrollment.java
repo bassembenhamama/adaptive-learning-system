@@ -2,11 +2,30 @@ package dz.edu.univconstantine2.ntic.als.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
+import lombok.*;
+import org.hibernate.annotations.SQLDelete;
+import org.hibernate.annotations.SQLRestriction;
 
+@Data
+@EqualsAndHashCode(callSuper=true)
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 @Entity
 @Table(name = "enrollments")
+@SQLDelete(sql = "UPDATE enrollments SET deleted = TRUE WHERE id = ?")
+@SQLRestriction("deleted = FALSE OR deleted IS NULL")
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
-public class Enrollment {
+public class Enrollment extends Auditable {
+
+    @Column(name = "deleted")
+    @Builder.Default
+    private Boolean deleted = false;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "mastery_state", nullable = false)
+    @Builder.Default
+    private MasteryState masteryState = MasteryState.IN_PROGRESS;
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -15,30 +34,21 @@ public class Enrollment {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
     @JsonIgnoreProperties({"password", "email"})
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     private User user;
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "course_id")
     @JsonIgnoreProperties({"instructor"})
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     private Course course;
 
     @Column(length = 5000)
+    @Builder.Default
     private String completedModuleIds = "";
 
-    private int score = 0;
-
-    public String getId() { return id; }
-    public void setId(String id) { this.id = id; }
-
-    public User getUser() { return user; }
-    public void setUser(User user) { this.user = user; }
-
-    public Course getCourse() { return course; }
-    public void setCourse(Course course) { this.course = course; }
-
-    public String getCompletedModuleIds() { return completedModuleIds; }
-    public void setCompletedModuleIds(String completedModuleIds) { this.completedModuleIds = completedModuleIds; }
-
-    public int getScore() { return score; }
-    public void setScore(int score) { this.score = score; }
+    @Builder.Default
+    private Integer score = 0;
 }

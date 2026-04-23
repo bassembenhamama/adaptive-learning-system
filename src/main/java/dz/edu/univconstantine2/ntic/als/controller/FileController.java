@@ -2,6 +2,7 @@ package dz.edu.univconstantine2.ntic.als.controller;
 
 import dz.edu.univconstantine2.ntic.als.dto.ErrorResponse;
 import dz.edu.univconstantine2.ntic.als.service.FileStorageService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -14,6 +15,7 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.Set;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/files")
 public class FileController {
@@ -28,13 +30,18 @@ public class FileController {
     );
 
     private final FileStorageService fileStorageService;
+    private final org.springframework.context.ApplicationEventPublisher eventPublisher;
 
-    public FileController(FileStorageService fileStorageService) {
+    public FileController(FileStorageService fileStorageService, org.springframework.context.ApplicationEventPublisher eventPublisher) {
         this.fileStorageService = fileStorageService;
+        this.eventPublisher = eventPublisher;
     }
 
     @PostMapping("/upload")
-    public ResponseEntity<?> uploadFile(@RequestParam("file") MultipartFile file) {
+    public ResponseEntity<?> uploadFile(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "moduleId", required = false) String moduleId,
+            @RequestParam(value = "courseId", required = false) String courseId) {
         if (file.isEmpty()) {
             return ResponseEntity.badRequest()
                     .body(new ErrorResponse(400, "No file provided."));
@@ -49,9 +56,17 @@ public class FileController {
         try {
             String filename = fileStorageService.store(file);
             String fileUrl = "/api/files/" + filename;
+
+            // Trigger indexing if moduleId and courseId are provided (Task 10-H)
+            if (moduleId != null && courseId != null && contentType.equals("application/pdf")) {
+                log.info("Publishing FileIndexingRequestEvent for module: {}", moduleId);
+                eventPublisher.publishEvent(new dz.edu.univconstantine2.ntic.als.event.FileIndexingRequestEvent(moduleId, courseId, filename));
+            }
+
             return ResponseEntity.status(HttpStatus.CREATED)
                     .body(Map.of("filename", filename, "url", fileUrl));
         } catch (IOException e) {
+            log.error("File upload failed", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ErrorResponse(500, "Failed to store file."));
         }

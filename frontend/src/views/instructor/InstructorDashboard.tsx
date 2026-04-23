@@ -1,12 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, BookOpen, Users, Trash2, Edit, AlertCircle, X } from 'lucide-react';
+import { Plus, BookOpen, Users, Trash2, Edit, AlertCircle, X, BarChart2 } from 'lucide-react';
 import { GlassContainer } from '../../components/ui/GlassContainer';
 import { ActionButton } from '../../components/ui/ActionButton';
 import { Input } from '../../components/ui/Input';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { EmptyState } from '../../components/ui/EmptyState';
-import { courseService } from '../../services/courseService';
+import { CourseAnalyticsPanel } from '../../components/ui/CourseAnalyticsPanel';
+import { useInstructorCourses, useCreateCourse, useDeleteCourse } from '../../hooks/useCourses';
 import { useNavigate } from 'react-router-dom';
 import type { Course } from '../../types';
 
@@ -20,63 +21,55 @@ const GRADIENTS = [
 ];
 
 export const InstructorDashboard = () => {
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: courses = [], isLoading: loading, error: queryError } = useInstructorCourses();
+  const { mutate: createCourse, isPending: creating } = useCreateCourse();
+  const { mutate: deleteCourse } = useDeleteCourse();
+
   const [showCreate, setShowCreate] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newCategory, setNewCategory] = useState('');
   const [newDesc, setNewDesc] = useState('');
-  const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  // 6-E: analytics panel state
+  const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  const fetchCourses = () => {
-    courseService.getInstructorCourses()
-      .then(setCourses)
-      .catch(() => setError('Failed to load courses.'))
-      .finally(() => setLoading(false));
-  };
+  if (queryError && !error) setError('Failed to load courses.');
 
-  useEffect(() => { fetchCourses(); }, []);
-
-  const handleCreate = async (e: React.FormEvent) => {
+  const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     if (!newTitle.trim()) {
       setError('Course title is required.');
       return;
     }
-    setCreating(true);
-    try {
-      const gradient = GRADIENTS[courses.length % GRADIENTS.length];
-      await courseService.create({
-        title: newTitle,
-        category: newCategory || 'General',
-        description: newDesc,
-        gradient,
-      });
-      setNewTitle('');
-      setNewCategory('');
-      setNewDesc('');
-      setShowCreate(false);
-      fetchCourses();
-    } catch {
-      setError('Failed to create course. Please try again.');
-    } finally {
-      setCreating(false);
-    }
+    const gradient = GRADIENTS[courses.length % GRADIENTS.length];
+    createCourse({
+      title: newTitle,
+      category: newCategory || 'General',
+      description: newDesc,
+      gradient,
+    }, {
+      onSuccess: () => {
+        setNewTitle('');
+        setNewCategory('');
+        setNewDesc('');
+        setShowCreate(false);
+      },
+      onError: () => setError('Failed to create course. Please try again.')
+    });
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = (id: string) => {
     setError('');
-    try {
-      await courseService.remove(id);
-      setCourses(courses.filter(c => c.id !== id));
-      setDeleteConfirm(null);
-    } catch {
-      setError('Failed to delete course.');
-    }
+    deleteCourse(id, {
+      onSuccess: () => {
+        setDeleteConfirm(null);
+        if (selectedCourseId === id) setSelectedCourseId(null);
+      },
+      onError: () => setError('Failed to delete course.')
+    });
   };
 
   if (loading) {
@@ -184,11 +177,22 @@ export const InstructorDashboard = () => {
               <div className="p-5 flex-1 flex flex-col bg-white/40 dark:bg-slate-900/40 z-10 relative">
                 <h3 className="text-base font-bold text-slate-900 dark:text-white mb-2 leading-tight">{course.title}</h3>
                 <p className="text-sm text-slate-600 dark:text-slate-400 flex-1 mb-4 line-clamp-2">{course.description}</p>
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap">
+                  {/* View Analytics button — 6-E */}
                   <ActionButton
                     variant="secondary"
                     size="sm"
-                    className="flex-1"
+                    id={`analytics-btn-${course.id}`}
+                    onClick={() => setSelectedCourseId(
+                      selectedCourseId === course.id ? null : course.id
+                    )}
+                  >
+                    <BarChart2 className="w-3.5 h-3.5" />
+                    {selectedCourseId === course.id ? 'Hide Analytics' : 'View Analytics'}
+                  </ActionButton>
+                  <ActionButton
+                    variant="secondary"
+                    size="sm"
                     onClick={() => navigate(`/course/${course.id}/edit`)}
                   >
                     <Edit className="w-3.5 h-3.5" /> Edit
@@ -225,6 +229,17 @@ export const InstructorDashboard = () => {
           ))}
         </div>
       )}
+
+      {/* Analytics Panel — 6-E */}
+      <AnimatePresence>
+        {selectedCourseId && (
+          <CourseAnalyticsPanel
+            key={selectedCourseId}
+            courseId={selectedCourseId}
+            onClose={() => setSelectedCourseId(null)}
+          />
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 };

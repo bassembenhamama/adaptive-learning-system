@@ -2,11 +2,23 @@ package dz.edu.univconstantine2.ntic.als.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
+import lombok.*;
 
+@Data
+@EqualsAndHashCode(callSuper=true)
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 @Entity
 @Table(name = "modules")
+@org.hibernate.annotations.SQLDelete(sql = "UPDATE modules SET deleted = TRUE WHERE id = ?")
+@org.hibernate.annotations.SQLRestriction("deleted = FALSE OR deleted IS NULL")
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
-public class Module {
+public class Module extends Auditable {
+
+    @Column(name = "deleted")
+    @Builder.Default
+    private Boolean deleted = false;
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -29,29 +41,13 @@ public class Module {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "course_id")
     @JsonIgnoreProperties({"modules", "instructor", "description", "gradient", "category"})
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     private Course course;
 
-    public String getId() { return id; }
-    public void setId(String id) { this.id = id; }
-
-    public String getTitle() { return title; }
-    public void setTitle(String title) { this.title = title; }
-
-    public String getType() { return type; }
-    public void setType(String type) { this.type = type; }
-
-    public Integer getOrder() { return displayOrder; }
-    public void setOrder(Integer order) { this.displayOrder = order; }
-
-    public String getContentUrl() { return contentUrl; }
-    public void setContentUrl(String contentUrl) { this.contentUrl = contentUrl; }
-
-    public Integer getThreshold() { return threshold; }
-    public void setThreshold(Integer threshold) { this.threshold = threshold; }
-
-    public String getQuestionsJson() { return questionsJson; }
-    public void setQuestionsJson(String questionsJson) { this.questionsJson = questionsJson; }
-
-    public Course getCourse() { return course; }
-    public void setCourse(Course course) { this.course = course; }
+    @OneToMany(mappedBy = "module", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private java.util.List<Question> questions = new java.util.ArrayList<>();
 }

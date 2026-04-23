@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Menu } from 'lucide-react';
 
@@ -8,17 +8,20 @@ import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { Sidebar } from './components/layout/Sidebar';
 import { LoadingSpinner } from './components/ui/LoadingSpinner';
 import { ThemeToggle } from './components/ui/ThemeToggle';
+import { ErrorBoundary } from 'react-error-boundary';
+import { FallbackUI } from './components/ui/FallbackUI';
 import { cn } from './utils';
 
-import { LandingPage } from './views/landing/LandingPage';
-import { AuthView } from './views/auth/AuthView';
-import { ProfileView } from './views/shared/ProfileView';
-import { LearnerDashboard } from './views/learner/LearnerDashboard';
-import { LearnerCatalog } from './views/learner/LearnerCatalog';
-import { CoursePlayer } from './views/learner/CoursePlayer';
-import { InstructorDashboard } from './views/instructor/InstructorDashboard';
-import { CourseBuilder } from './views/instructor/CourseBuilder';
-import { AdminDashboard } from './views/admin/AdminDashboard';
+// Lazy load views for code splitting
+const LandingPage = lazy(() => import('./views/landing/LandingPage').then(m => ({ default: m.LandingPage })));
+const AuthView = lazy(() => import('./views/auth/AuthView').then(m => ({ default: m.AuthView })));
+const ProfileView = lazy(() => import('./views/shared/ProfileView').then(m => ({ default: m.ProfileView })));
+const LearnerDashboard = lazy(() => import('./views/learner/LearnerDashboard').then(m => ({ default: m.LearnerDashboard })));
+const LearnerCatalog = lazy(() => import('./views/learner/LearnerCatalog').then(m => ({ default: m.LearnerCatalog })));
+const CoursePlayer = lazy(() => import('./views/learner/CoursePlayer').then(m => ({ default: m.CoursePlayer })));
+const InstructorDashboard = lazy(() => import('./views/instructor/InstructorDashboard').then(m => ({ default: m.InstructorDashboard })));
+const CourseBuilder = lazy(() => import('./views/instructor/CourseBuilder').then(m => ({ default: m.CourseBuilder })));
+const AdminDashboard = lazy(() => import('./views/admin/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
 
 /** Redirect authenticated users away from public pages */
 const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -49,7 +52,9 @@ const AuthenticatedLayout = () => {
           <ThemeToggle />
         </header>
         <div className="flex-1 overflow-y-auto pb-8 pr-2">
-          <DashboardRoutes />
+          <ErrorBoundary FallbackComponent={FallbackUI}>
+            <DashboardRoutes />
+          </ErrorBoundary>
         </div>
       </main>
     </div>
@@ -60,26 +65,22 @@ const DashboardRoutes = () => {
   const { user } = useAuth();
   if (!user) return null;
 
-  switch (user.role) {
-    case 'ADMIN':
-      return (
+  return (
+    <Suspense fallback={<LoadingSpinner size="lg" label="Loading..." className="mt-32" />}>
+      {user.role === 'ADMIN' ? (
         <Routes>
           <Route path="/dashboard" element={<AdminDashboard />} />
           <Route path="/profile" element={<ProfileView />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
-      );
-    case 'INSTRUCTOR':
-      return (
+      ) : user.role === 'INSTRUCTOR' ? (
         <Routes>
           <Route path="/dashboard" element={<InstructorDashboard />} />
           <Route path="/course/:id/edit" element={<CourseBuilder />} />
           <Route path="/profile" element={<ProfileView />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
-      );
-    default:
-      return (
+      ) : (
         <Routes>
           <Route path="/dashboard" element={<LearnerDashboard />} />
           <Route path="/catalog" element={<LearnerCatalog />} />
@@ -87,8 +88,9 @@ const DashboardRoutes = () => {
           <Route path="/profile" element={<ProfileView />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
-      );
-  }
+      )}
+    </Suspense>
+  );
 };
 
 const AppContent = () => {
@@ -104,49 +106,51 @@ const AppContent = () => {
   }
 
   return (
-    <Routes>
-      {/* Public routes — only accessible when NOT logged in */}
-      <Route
-        path="/"
-        element={
-          <PublicRoute>
-            <div className={cn("min-h-screen", isDark ? "bg-mesh-dark dark" : "bg-mesh-light")}>
-              <LandingPage />
-            </div>
-          </PublicRoute>
-        }
-      />
-      <Route
-        path="/login"
-        element={
-          <PublicRoute>
-            <div className={cn("min-h-screen", isDark ? "bg-mesh-dark dark" : "bg-mesh-light")}>
-              <AuthView initialMode="login" />
-            </div>
-          </PublicRoute>
-        }
-      />
-      <Route
-        path="/register"
-        element={
-          <PublicRoute>
-            <div className={cn("min-h-screen", isDark ? "bg-mesh-dark dark" : "bg-mesh-light")}>
-              <AuthView initialMode="register" />
-            </div>
-          </PublicRoute>
-        }
-      />
+    <Suspense fallback={<div className={cn("min-h-screen", isDark ? "bg-mesh-dark dark" : "bg-mesh-light")}><LoadingSpinner size="lg" label="Loading..." className="pt-32" /></div>}>
+      <Routes>
+        {/* Public routes — only accessible when NOT logged in */}
+        <Route
+          path="/"
+          element={
+            <PublicRoute>
+              <div className={cn("min-h-screen", isDark ? "bg-mesh-dark dark" : "bg-mesh-light")}>
+                <LandingPage />
+              </div>
+            </PublicRoute>
+          }
+        />
+        <Route
+          path="/login"
+          element={
+            <PublicRoute>
+              <div className={cn("min-h-screen", isDark ? "bg-mesh-dark dark" : "bg-mesh-light")}>
+                <AuthView initialMode="login" />
+              </div>
+            </PublicRoute>
+          }
+        />
+        <Route
+          path="/register"
+          element={
+            <PublicRoute>
+              <div className={cn("min-h-screen", isDark ? "bg-mesh-dark dark" : "bg-mesh-light")}>
+                <AuthView initialMode="register" />
+              </div>
+            </PublicRoute>
+          }
+        />
 
-      {/* Protected routes — all go through authenticated layout */}
-      <Route
-        path="/*"
-        element={
-          <ProtectedRoute>
-            <AuthenticatedLayout />
-          </ProtectedRoute>
-        }
-      />
-    </Routes>
+        {/* Protected routes — all go through authenticated layout */}
+        <Route
+          path="/*"
+          element={
+            <ProtectedRoute>
+              <AuthenticatedLayout />
+            </ProtectedRoute>
+          }
+        />
+      </Routes>
+    </Suspense>
   );
 };
 

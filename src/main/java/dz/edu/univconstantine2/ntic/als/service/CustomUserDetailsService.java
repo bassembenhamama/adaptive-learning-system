@@ -2,6 +2,7 @@ package dz.edu.univconstantine2.ntic.als.service;
 
 import dz.edu.univconstantine2.ntic.als.model.User;
 import dz.edu.univconstantine2.ntic.als.repository.UserRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -10,6 +11,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 
+@Slf4j
 @Service
 public class CustomUserDetailsService implements UserDetailsService {
 

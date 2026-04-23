@@ -1,0 +1,19 @@
+spring:
+  config:
+    activate:
+      on-profile: local
+  datasource:
+    url: jdbc:mysql://localhost:3306/adaptive_learning_db?createDatabaseIfNotExist=true&allowPublicKeyRetrieval=true&useSSL=false
+    username: root
+    password: ""          # <-- set your local MySQL root password here (blank if none)
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    show-sql: true
+    hibernate:
+      ddl-auto: update
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    url: jdbc:mysql://localhost:3306/adaptive_learning_db?createDatabaseIfNotExist=true&allowPublicKeyRetrieval=true&useSSL=false
+    user: root
+    password: ""          # <-- must match datasource.password above

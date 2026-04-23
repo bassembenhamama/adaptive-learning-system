@@ -1,83 +1,76 @@
 package dz.edu.univconstantine2.ntic.als.controller;
 
+import dz.edu.univconstantine2.ntic.als.dto.CourseCreateRequestDTO;
+import dz.edu.univconstantine2.ntic.als.dto.CourseResponseDTO;
+import dz.edu.univconstantine2.ntic.als.dto.CourseUpdateRequestDTO;
 import dz.edu.univconstantine2.ntic.als.dto.ErrorResponse;
-import dz.edu.univconstantine2.ntic.als.model.Course;
-import dz.edu.univconstantine2.ntic.als.model.User;
-import dz.edu.univconstantine2.ntic.als.repository.CourseRepository;
-import dz.edu.univconstantine2.ntic.als.repository.UserRepository;
+import dz.edu.univconstantine2.ntic.als.service.CourseService;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.NoSuchElementException;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/courses")
+@RequiredArgsConstructor
 public class CourseController {
 
-    private final CourseRepository courseRepository;
-    private final UserRepository userRepository;
-
-    public CourseController(CourseRepository courseRepository, UserRepository userRepository) {
-        this.courseRepository = courseRepository;
-        this.userRepository = userRepository;
-    }
+    private final CourseService courseService;
 
     @GetMapping
-    public ResponseEntity<List<Course>> getAllCourses() {
-        return ResponseEntity.ok(courseRepository.findAll());
+    public ResponseEntity<List<CourseResponseDTO>> getAllCourses() {
+        return ResponseEntity.ok(courseService.getAllCourses());
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<?> getCourseById(@PathVariable String id) {
-        Course course = courseRepository.findById(id).orElse(null);
-        if (course == null) {
+        try {
+            return ResponseEntity.ok(courseService.getCourseById(id));
+        } catch (NoSuchElementException ex) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(new ErrorResponse(404, "Course not found."));
         }
-        return ResponseEntity.ok(course);
     }
 
     @GetMapping("/instructor")
-    public ResponseEntity<List<Course>> getInstructorCourses() {
-        User instructor = getAuthenticatedUser();
-        return ResponseEntity.ok(courseRepository.findByInstructor(instructor));
+    public ResponseEntity<List<CourseResponseDTO>> getInstructorCourses() {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        return ResponseEntity.ok(courseService.getCoursesByInstructor(email));
     }
 
     @PostMapping
-    public ResponseEntity<Course> createCourse(@RequestBody Course course) {
-        User instructor = getAuthenticatedUser();
-        course.setInstructor(instructor);
-        return ResponseEntity.status(HttpStatus.CREATED).body(courseRepository.save(course));
+    public ResponseEntity<CourseResponseDTO> createCourse(@RequestBody CourseCreateRequestDTO dto) {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        return ResponseEntity.status(HttpStatus.CREATED).body(courseService.createCourse(dto, email));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<?> updateCourse(@PathVariable String id, @RequestBody Course courseData) {
-        Course course = courseRepository.findById(id).orElse(null);
-        if (course == null) {
+    @PreAuthorize("hasRole('ADMIN') or @securityService.isCourseInstructor(#id, authentication.name)")
+    public ResponseEntity<?> updateCourse(@PathVariable String id, @RequestBody CourseUpdateRequestDTO dto) {
+        try {
+            return ResponseEntity.ok(courseService.updateCourse(id, dto));
+        } catch (NoSuchElementException ex) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(new ErrorResponse(404, "Course not found."));
         }
-        if (courseData.getTitle() != null) course.setTitle(courseData.getTitle());
-        if (courseData.getDescription() != null) course.setDescription(courseData.getDescription());
-        if (courseData.getCategory() != null) course.setCategory(courseData.getCategory());
-        if (courseData.getGradient() != null) course.setGradient(courseData.getGradient());
-        return ResponseEntity.ok(courseRepository.save(course));
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN') or @securityService.isCourseInstructor(#id, authentication.name)")
     public ResponseEntity<?> deleteCourse(@PathVariable String id) {
-        if (!courseRepository.existsById(id)) {
+        try {
+            courseService.deleteCourse(id);
+            return ResponseEntity.noContent().build();
+        } catch (NoSuchElementException ex) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(new ErrorResponse(404, "Course not found."));
         }
-        courseRepository.deleteById(id);
-        return ResponseEntity.noContent().build();
-    }
-
-    private User getAuthenticatedUser() {
-        String email = SecurityContextHolder.getContext().getAuthentication().getName();
-        return userRepository.findByEmail(email).orElseThrow();
     }
 }

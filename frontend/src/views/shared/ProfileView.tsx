@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
-import { User, Mail, Lock, Save, CheckCircle } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { User, Mail, Lock, Save, CheckCircle, ChevronDown, Trash2, AlertTriangle } from 'lucide-react';
 import { GlassContainer } from '../../components/ui/GlassContainer';
 import { Input } from '../../components/ui/Input';
 import { ActionButton } from '../../components/ui/ActionButton';
 import { useAuth } from '../../context/AuthContext';
 import { authService } from '../../services/authService';
+import api from '../../services/api';
 
 export const ProfileView = () => {
   const { user, refreshUser } = useAuth();
@@ -20,7 +21,19 @@ export const ProfileView = () => {
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingPw, setSavingPw] = useState(false);
 
+  // 6-K: Danger Zone state
+  const [dangerZoneOpen, setDangerZoneOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteErr, setDeleteErr] = useState('');
+
   if (!user) return null;
+
+  const ROLE_COLORS: Record<string, string> = {
+    ADMIN:      'bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-400 border-red-200 dark:border-red-500/20',
+    INSTRUCTOR: 'bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400 border-blue-200 dark:border-blue-500/20',
+    LEARNER:    'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20',
+  };
 
   const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,6 +72,21 @@ export const ProfileView = () => {
     }
   };
 
+  // 6-K: account self-deletion
+  const handleDeleteAccount = async () => {
+    setDeleting(true);
+    setDeleteErr('');
+    try {
+      await api.delete('/users/me');
+      // Backend cleared the JWT cookie in the response.
+      // Hard-redirect forces a full session reset without a second API call.
+      window.location.href = '/login';
+    } catch (err: any) {
+      setDeleteErr(err.response?.data?.message || 'Failed to delete account. Please try again.');
+      setDeleting(false);
+    }
+  };
+
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8 max-w-2xl">
       <div>
@@ -74,9 +102,10 @@ export const ProfileView = () => {
           </div>
         </div>
         <div className="px-8 pt-12 pb-8">
-          <div className="flex items-center gap-3 mb-1">
+          <div className="flex items-center gap-3 mb-1 flex-wrap">
             <h3 className="text-lg font-bold text-slate-900 dark:text-white">{user.name}</h3>
-            <span className="px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20">
+            {/* 6-K: Role badge (colour-coded by role) */}
+            <span className={`px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border ${ROLE_COLORS[user.role] || ROLE_COLORS.LEARNER}`}>
               {user.role}
             </span>
           </div>
@@ -147,6 +176,85 @@ export const ProfileView = () => {
             <Lock className="w-4 h-4" /> {savingPw ? 'Updating...' : 'Update Password'}
           </ActionButton>
         </form>
+      </GlassContainer>
+
+      {/* 6-K: Danger Zone — collapsible */}
+      <GlassContainer className="p-0 overflow-hidden border border-red-200 dark:border-red-500/20">
+        <button
+          id="danger-zone-toggle"
+          onClick={() => setDangerZoneOpen(prev => !prev)}
+          className="w-full flex items-center justify-between px-8 py-5 text-left hover:bg-red-50/50 dark:hover:bg-red-500/5 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <AlertTriangle className="w-5 h-5 text-red-500 shrink-0" />
+            <div>
+              <p className="text-sm font-bold text-red-700 dark:text-red-400">Danger Zone</p>
+              <p className="text-xs text-red-500/70 dark:text-red-400/60 mt-0.5">Irreversible and destructive actions</p>
+            </div>
+          </div>
+          <motion.div animate={{ rotate: dangerZoneOpen ? 180 : 0 }} transition={{ duration: 0.2 }}>
+            <ChevronDown className="w-4 h-4 text-red-400" />
+          </motion.div>
+        </button>
+
+        <AnimatePresence>
+          {dangerZoneOpen && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.25 }}
+              className="overflow-hidden"
+            >
+              <div className="px-8 pb-8 pt-0 space-y-5 border-t border-red-100 dark:border-red-500/10">
+                <div className="pt-5">
+                  <h4 className="text-sm font-bold text-slate-900 dark:text-white mb-1">Delete Account</h4>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
+                    Permanently delete your account and all associated data. This action cannot be undone.
+                  </p>
+
+                  {deleteErr && (
+                    <p className="text-sm text-red-500 font-medium mb-3">{deleteErr}</p>
+                  )}
+
+                  {!confirmDelete ? (
+                    <ActionButton
+                      id="delete-account-btn"
+                      variant="danger"
+                      onClick={() => setConfirmDelete(true)}
+                    >
+                      <Trash2 className="w-4 h-4" /> Delete My Account
+                    </ActionButton>
+                  ) : (
+                    <div className="space-y-3">
+                      <p className="text-sm font-semibold text-red-700 dark:text-red-400">
+                        Are you absolutely sure? This cannot be undone.
+                      </p>
+                      <div className="flex gap-3">
+                        <ActionButton
+                          id="delete-account-confirm-btn"
+                          variant="danger"
+                          disabled={deleting}
+                          onClick={handleDeleteAccount}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          {deleting ? 'Deleting...' : 'Yes, delete my account'}
+                        </ActionButton>
+                        <ActionButton
+                          variant="ghost"
+                          onClick={() => setConfirmDelete(false)}
+                          disabled={deleting}
+                        >
+                          Cancel
+                        </ActionButton>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </GlassContainer>
     </motion.div>
   );

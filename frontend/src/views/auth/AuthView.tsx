@@ -103,22 +103,20 @@ export const AuthView = ({ initialMode = 'login' }: AuthViewProps) => {
             <button
               type="button"
               onClick={() => switchMode('login')}
-              className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 ${
-                mode === 'login'
-                  ? 'bg-white dark:bg-slate-800 text-emerald-700 dark:text-emerald-400 shadow-sm'
-                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-white'
-              }`}
+              className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 ${mode === 'login'
+                ? 'bg-white dark:bg-slate-800 text-emerald-700 dark:text-emerald-400 shadow-sm'
+                : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-white'
+                }`}
             >
               <LogIn className="w-4 h-4" /> Log In
             </button>
             <button
               type="button"
               onClick={() => switchMode('register')}
-              className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 ${
-                mode === 'register'
-                  ? 'bg-white dark:bg-slate-800 text-emerald-700 dark:text-emerald-400 shadow-sm'
-                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-white'
-              }`}
+              className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 ${mode === 'register'
+                ? 'bg-white dark:bg-slate-800 text-emerald-700 dark:text-emerald-400 shadow-sm'
+                : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-white'
+                }`}
             >
               <UserPlus className="w-4 h-4" /> Sign Up
             </button>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Search, BookOpen, CheckCircle, PlayCircle } from 'lucide-react';
 import { Input } from '../../components/ui/Input';
@@ -8,44 +8,28 @@ import { ActionButton } from '../../components/ui/ActionButton';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { useNavigate } from 'react-router-dom';
-import { courseService } from '../../services/courseService';
-import { enrollmentService } from '../../services/enrollmentService';
+import { useCourses } from '../../hooks/useCourses';
+import { useEnrollments, useEnroll } from '../../hooks/useEnrollments';
 import type { Course, Enrollment } from '../../types';
 
 export const LearnerCatalog = () => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [enrollingId, setEnrollingId] = useState<string | null>(null);
+  const { data: courses = [], isLoading: coursesLoading } = useCourses();
+  const { data: enrollments = [], isLoading: enrollmentsLoading } = useEnrollments();
+  const { mutate: enroll, isPending: enrolling } = useEnroll();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    Promise.all([
-      courseService.getAll(),
-      enrollmentService.getMyEnrollments()
-    ])
-      .then(([coursesData, enrollmentsData]) => {
-        setCourses(coursesData);
-        setEnrollments(enrollmentsData);
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
+  const loading = coursesLoading || enrollmentsLoading;
 
   const filteredCourses = courses.filter(c =>
     c.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     c.category?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const enroll = async (courseId: string) => {
-    setEnrollingId(courseId);
-    try {
-      await enrollmentService.enroll(courseId);
-      navigate(`/course/${courseId}`);
-    } catch {
-      setEnrollingId(null);
-    }
+  const handleEnroll = (courseId: string) => {
+    enroll(courseId, {
+      onSuccess: () => navigate(`/course/${courseId}`)
+    });
   };
 
   if (loading) {
@@ -104,10 +88,10 @@ export const LearnerCatalog = () => {
                   <ActionButton
                     variant="secondary"
                     className="w-full border-emerald-500/30 text-emerald-700 dark:text-emerald-400"
-                    onClick={() => enroll(c.id)}
-                    disabled={enrollingId === c.id}
+                    onClick={() => handleEnroll(c.id)}
+                    disabled={enrolling}
                   >
-                    {enrollingId === c.id ? 'Enrolling...' : 'Enroll in Course'}
+                    {enrolling ? 'Enrolling...' : 'Enroll in Course'}
                   </ActionButton>
                 )}
               </div>

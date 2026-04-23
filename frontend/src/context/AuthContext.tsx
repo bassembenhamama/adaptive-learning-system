@@ -7,7 +7,7 @@ interface AuthContextType {
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
 
@@ -18,17 +18,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   const refreshUser = useCallback(async () => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      setUser(null);
-      setLoading(false);
-      return;
-    }
     try {
       const userData = await authService.getCurrentUser();
       setUser(userData);
     } catch {
-      localStorage.removeItem('token');
       setUser(null);
     } finally {
       setLoading(false);
@@ -40,19 +33,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [refreshUser]);
 
   const login = async (email: string, password: string) => {
-    const data = await authService.login(email, password);
-    localStorage.setItem('token', data.token);
-    setUser(data.user);
+    const userData = await authService.login(email, password);
+    setUser(userData);
   };
 
   const register = async (name: string, email: string, password: string) => {
-    const data = await authService.register(name, email, password);
-    localStorage.setItem('token', data.token);
-    setUser(data.user);
+    const userData = await authService.register(name, email, password);
+    setUser(userData);
   };
 
-  const logout = () => {
-    authService.logout();
+  const logout = async () => {
+    await authService.logout();
     setUser(null);
   };
 

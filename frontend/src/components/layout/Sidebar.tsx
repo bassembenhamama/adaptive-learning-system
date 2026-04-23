@@ -4,6 +4,7 @@ import { LayoutGroup, motion } from 'framer-motion';
 import { LayoutDashboard, User, Search, BarChart3, LogOut, BookOpen, Shield } from 'lucide-react';
 import { ALSLogo } from '../ui/ALSLogo';
 import { GlassContainer } from '../ui/GlassContainer';
+import { NotificationBell } from '../ui/NotificationBell';
 import { cn } from '../../utils';
 import { useAuth } from '../../context/AuthContext';
 
@@ -82,6 +83,13 @@ export const Sidebar = () => {
             })}
           </LayoutGroup>
         </nav>
+
+        {/* Notification Bell — LEARNER only */}
+        {user.role === 'LEARNER' && (
+          <div className="mt-2 pt-2 border-t border-slate-100 dark:border-white/5">
+            <NotificationBell />
+          </div>
+        )}
 
         <div className="mt-auto pt-4 border-t border-slate-200 dark:border-white/10 flex items-center justify-between">
           <div className="flex items-center gap-3 overflow-hidden">

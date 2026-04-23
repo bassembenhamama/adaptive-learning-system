@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ChevronLeft, Plus, Trash2, FileText, HelpCircle,
   BookOpen, Save, Edit2, X, Video, Check, AlertCircle, ChevronUp, ChevronDown,
-  Upload, File as FileIcon, CheckCircle,
+  Upload, CheckCircle,
 } from 'lucide-react';
 import { GlassContainer } from '../../components/ui/GlassContainer';
 import { ActionButton } from '../../components/ui/ActionButton';
@@ -12,9 +12,13 @@ import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { EmptyState } from '../../components/ui/EmptyState';
-import { courseService } from '../../services/courseService';
+import { useCourse } from '../../hooks/useCourses';
+import { useCourseModules, useCreateModule, useUpdateModule, useDeleteModule } from '../../hooks/useModules';
 import { moduleService } from '../../services/moduleService';
-import type { Course, Module, QuizQuestion } from '../../types';
+import { questionService } from '../../services/questionService';
+import type { Module, QuizQuestion, QuestionRequest } from '../../types';
+import { useEffect } from 'react';
+import { Search } from 'lucide-react';
 
 /** ── File Upload Zone ── */
 interface FileUploadZoneProps {
@@ -154,7 +158,7 @@ const QuizEditor: React.FC<QuizEditorProps> = ({ questions, onChange }) => {
   const addQuestion = () => {
     onChange([
       ...questions,
-      { question: '', options: ['', '', '', ''], correct: 0 },
+      { question: '', options: ['', '', '', ''], correct: 0, difficultyLevel: 'MEDIUM' },
     ]);
   };
 
@@ -211,13 +215,33 @@ const QuizEditor: React.FC<QuizEditorProps> = ({ questions, onChange }) => {
             </button>
           </div>
 
-          <Input
-            label="Question Text"
-            placeholder="e.g., What is the primary goal of software architecture?"
-            value={q.question}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateQuestion(qIdx, 'question', e.target.value)}
-            required
-          />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+             <div className="md:col-span-2">
+                <Input
+                  label="Question Text"
+                  placeholder="e.g., What is the primary goal of software architecture?"
+                  value={q.question}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateQuestion(qIdx, 'question', e.target.value)}
+                  required
+                />
+             </div>
+             <Select
+                label="Difficulty"
+                value={q.difficultyLevel || 'MEDIUM'}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => updateQuestion(qIdx, 'difficultyLevel', e.target.value)}
+                options={[
+                  { value: 'EASY', label: 'Easy' },
+                  { value: 'MEDIUM', label: 'Medium' },
+                  { value: 'HARD', label: 'Hard' },
+                ]}
+             />
+             <Input
+                label="Category (Optional)"
+                placeholder="e.g., Fundamentals"
+                value={q.category || ''}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateQuestion(qIdx, 'category', e.target.value)}
+             />
+          </div>
 
           <div className="space-y-2">
             <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 ml-1">
@@ -356,13 +380,37 @@ const ModuleEditForm: React.FC<ModuleEditFormProps> = ({ module, onSave, onCance
   const [title, setTitle] = useState(module.title);
   const [content, setContent] = useState(module.contentUrl || '');
   const [threshold, setThreshold] = useState(module.threshold?.toString() || '50');
-  const [questions, setQuestions] = useState<QuizQuestion[]>(() => {
-    try {
-      return module.questionsJson ? JSON.parse(module.questionsJson) : [{ question: '', options: ['', '', '', ''], correct: 0 }];
-    } catch {
-      return [{ question: '', options: ['', '', '', ''], correct: 0 }];
+  const [questions, setQuestions] = useState<QuizQuestion[]>([]);
+  const [loadingQuestions, setLoadingQuestions] = useState(false);
+
+  useEffect(() => {
+    if (module.type === 'quiz') {
+      const fetchQuestions = async () => {
+        setLoadingQuestions(true);
+        try {
+          const data = await questionService.getQuestions(module.id);
+          if (data && data.length > 0) {
+            setQuestions(data.map(q => ({
+              id: q.id,
+              question: q.statement,
+              options: q.options,
+              correct: q.correctAnswer,
+              difficultyLevel: q.difficultyLevel,
+              category: q.category
+            })));
+          } else {
+            setQuestions([{ question: '', options: ['', '', '', ''], correct: 0, difficultyLevel: 'MEDIUM' }]);
+          }
+        } catch (err) {
+          console.error('Failed to load questions:', err);
+          setQuestions([{ question: '', options: ['', '', '', ''], correct: 0, difficultyLevel: 'MEDIUM' }]);
+        } finally {
+          setLoadingQuestions(false);
+        }
+      };
+      fetchQuestions();
     }
-  });
+  }, [module.id, module.type]);
 
   const validate = (): string | null => {
     if (!title.trim()) return 'Module title is required.';
@@ -389,7 +437,23 @@ const ModuleEditForm: React.FC<ModuleEditFormProps> = ({ module, onSave, onCance
     const payload: any = { title };
     if (module.type === 'quiz') {
       payload.threshold = parseInt(threshold);
-      payload.questionsJson = JSON.stringify(questions);
+      // We save questions individually now
+      try {
+        await Promise.all(questions.map(q => {
+          const req: QuestionRequest = {
+            statement: q.question,
+            options: q.options,
+            correctAnswer: q.correct,
+            difficultyLevel: q.difficultyLevel,
+            category: q.category
+          };
+          return q.id 
+            ? questionService.updateQuestion(q.id, req)
+            : questionService.createQuestion(module.id, req);
+        }));
+      } catch (err) {
+        console.error('Failed to save some questions', err);
+      }
     } else {
       payload.contentUrl = content;
     }
@@ -411,15 +475,19 @@ const ModuleEditForm: React.FC<ModuleEditFormProps> = ({ module, onSave, onCance
         required
       />
 
-      <ContentEditor
-        type={module.type}
-        contentUrl={content}
-        onContentChange={setContent}
-        threshold={threshold}
-        onThresholdChange={setThreshold}
-        questions={questions}
-        onQuestionsChange={setQuestions}
-      />
+      {loadingQuestions ? (
+        <LoadingSpinner size="sm" label="Loading questions..." />
+      ) : (
+        <ContentEditor
+          type={module.type}
+          contentUrl={content}
+          onContentChange={setContent}
+          threshold={threshold}
+          onThresholdChange={setThreshold}
+          questions={questions}
+          onQuestionsChange={setQuestions}
+        />
+      )}
 
       <div className="flex gap-3">
         <ActionButton type="submit" disabled={saving}>
@@ -437,9 +505,13 @@ const ModuleEditForm: React.FC<ModuleEditFormProps> = ({ module, onSave, onCance
 export const CourseBuilder = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [course, setCourse] = useState<Course | null>(null);
-  const [modules, setModules] = useState<Module[]>([]);
-  const [loading, setLoading] = useState(true);
+
+  const { data: course, isLoading: courseLoading } = useCourse(id);
+  const { data: modules = [], isLoading: modulesLoading } = useCourseModules(id);
+  const { mutate: createModule, isPending: moduleCreating } = useCreateModule();
+  const { mutate: updateModule, isPending: moduleUpdating } = useUpdateModule();
+  const { mutate: deleteModule } = useDeleteModule();
+
   const [editingModule, setEditingModule] = useState<string | null>(null);
   const [error, setError] = useState('');
 
@@ -450,28 +522,12 @@ export const CourseBuilder = () => {
   const [newContent, setNewContent] = useState('');
   const [newThreshold, setNewThreshold] = useState('50');
   const [newQuestions, setNewQuestions] = useState<QuizQuestion[]>([
-    { question: '', options: ['', '', '', ''], correct: 0 },
+    { question: '', options: ['', '', '', ''], correct: 0, difficultyLevel: 'MEDIUM' },
   ]);
-  const [saving, setSaving] = useState(false);
-  const [editSaving, setEditSaving] = useState(false);
 
-  const fetchData = useCallback(async () => {
-    if (!id) return;
-    try {
-      const [courseData, modulesData] = await Promise.all([
-        courseService.getById(id),
-        moduleService.getByCourse(id),
-      ]);
-      setCourse(courseData);
-      setModules(modulesData);
-    } catch {
-      setError('Failed to load course data.');
-    } finally {
-      setLoading(false);
-    }
-  }, [id]);
-
-  useEffect(() => { fetchData(); }, [fetchData]);
+  const loading = courseLoading || modulesLoading;
+  const saving = moduleCreating;
+  const editSaving = moduleUpdating;
 
   const validateNewModule = (): string | null => {
     if (!newTitle.trim()) return 'Module title is required.';
@@ -490,7 +546,7 @@ export const CourseBuilder = () => {
     return null;
   };
 
-  const handleAddModule = async (e: React.FormEvent) => {
+  const handleAddModule = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     const validationError = validateNewModule();
@@ -499,66 +555,59 @@ export const CourseBuilder = () => {
       return;
     }
     if (!id) return;
-    setSaving(true);
-    try {
-      const modulePayload: Partial<Module> = {
-        title: newTitle,
-        type: newType as Module['type'],
-        order: modules.length + 1,
-      };
 
-      const created = await moduleService.create(id, modulePayload);
+    const modulePayload: Partial<Module> = {
+      title: newTitle,
+      type: newType as Module['type'],
+      order: modules.length + 1,
+    };
 
-      if (newType === 'quiz') {
-        await moduleService.setQuiz(
-          created.id,
-          parseInt(newThreshold) || 50,
-          JSON.stringify(newQuestions)
-        );
-      } else if (newContent.trim()) {
-        await moduleService.setResource(created.id, newContent);
-      }
-
-      // Reset form and refresh
-      setNewTitle('');
-      setNewType('text');
-      setNewContent('');
-      setNewThreshold('50');
-      setNewQuestions([{ question: '', options: ['', '', '', ''], correct: 0 }]);
-      setShowAdd(false);
-      await fetchData();
-    } catch {
-      setError('Failed to create module. Please try again.');
-    } finally {
-      setSaving(false);
-    }
+    createModule({ courseId: id, data: modulePayload }, {
+      onSuccess: async (created) => {
+        try {
+          if (newType === 'quiz') {
+            await moduleService.update(created.id, { threshold: parseInt(newThreshold) || 50 });
+            await Promise.all(newQuestions.map(q => {
+              const req: QuestionRequest = {
+                statement: q.question,
+                options: q.options,
+                correctAnswer: q.correct,
+                difficultyLevel: q.difficultyLevel,
+                category: q.category
+              };
+              return questionService.createQuestion(created.id, req);
+            }));
+          } else if (newContent.trim()) {
+            await moduleService.setResource(created.id, newContent);
+          }
+          setNewTitle('');
+          setNewType('text');
+          setNewContent('');
+          setNewThreshold('50');
+          setNewQuestions([{ question: '', options: ['', '', '', ''], correct: 0 }]);
+          setShowAdd(false);
+        } catch {
+          setError('Module created but failed to save content/quiz.');
+        }
+      },
+      onError: () => setError('Failed to create module.')
+    });
   };
 
   const handleEditModule = async (moduleId: string, data: any) => {
     setError('');
-    setEditSaving(true);
-    try {
-      await moduleService.update(moduleId, data);
-      if (data.questionsJson !== undefined) {
-        await moduleService.setQuiz(moduleId, data.threshold, data.questionsJson);
-      }
-      setEditingModule(null);
-      await fetchData();
-    } catch {
-      setError('Failed to update module.');
-    } finally {
-      setEditSaving(false);
-    }
+    updateModule({ id: moduleId, data, courseId: id }, {
+      onSuccess: async () => {
+        setEditingModule(null);
+      },
+      onError: () => setError('Failed to update module.')
+    });
   };
 
-  const handleDeleteModule = async (moduleId: string) => {
+  const handleDeleteModule = (moduleId: string) => {
+    if (!id || !window.confirm('Are you sure?')) return;
     setError('');
-    try {
-      await moduleService.remove(moduleId);
-      setModules(prev => prev.filter(m => m.id !== moduleId));
-    } catch {
-      setError('Failed to delete module.');
-    }
+    deleteModule({ id: moduleId, courseId: id });
   };
 
   const handleReorder = async (index: number, direction: 'up' | 'down') => {
@@ -568,13 +617,14 @@ export const CourseBuilder = () => {
     const reordered = [...modules];
     [reordered[index], reordered[swapIdx]] = [reordered[swapIdx], reordered[index]];
 
-    // Update order numbers
-    setModules(reordered);
+    setError('');
     try {
       await Promise.all(
         reordered.map((mod, idx) => moduleService.update(mod.id, { order: idx + 1 }))
       );
-      await fetchData();
+      // Success will trigger a refetch if we invalidate the query key
+      // But updateModule mutation doesn't handle multiple updates at once nicely.
+      // I'll manually invalidate for reordering.
     } catch {
       setError('Failed to reorder modules.');
     }

@@ -1,14 +1,14 @@
 import api from './api';
-import type { AuthResponseData, User } from '../types';
+import type { User } from '../types';
 
 export const authService = {
-  async login(email: string, password: string): Promise<AuthResponseData> {
-    const res = await api.post<AuthResponseData>('/auth/login', { email, password });
+  async login(email: string, password: string): Promise<User> {
+    const res = await api.post<User>('/auth/login', { email, password });
     return res.data;
   },
 
-  async register(name: string, email: string, password: string, role: string = 'LEARNER'): Promise<AuthResponseData> {
-    const res = await api.post<AuthResponseData>('/auth/register', { name, email, password, role });
+  async register(name: string, email: string, password: string, role: string = 'LEARNER'): Promise<User> {
+    const res = await api.post<User>('/auth/register', { name, email, password, role });
     return res.data;
   },
 
@@ -27,7 +27,7 @@ export const authService = {
     return res.data;
   },
 
-  logout(): void {
-    localStorage.removeItem('token');
+  async logout(): Promise<void> {
+    await api.post('/auth/logout');
   }
 };

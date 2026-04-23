@@ -4,6 +4,8 @@ target/
 !**/src/main/**/target/
 !**/src/test/**/target/
 frontend/node/
+frontend/node_modules/
+frontend/dist/
 main.pdf
 main.txt
 
@@ -34,8 +36,17 @@ build/
 
 ### VS Code ###
 .vscode/
-.env 
+
+### Environment files ###
+.env
 .env.*
+
+### Local profile config (contains local secrets — copy from *.example) ###
+src/main/resources/application-local.yml
+
+### Uploads & Logs ###
+uploads/
+*.log
 
 ### Data Initializer (dev-only seed data) ###
 src/main/java/dz/edu/univconstantine2/ntic/als/config/DataInitializer.java

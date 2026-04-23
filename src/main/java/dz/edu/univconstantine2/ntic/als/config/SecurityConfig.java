@@ -1,10 +1,12 @@
 package dz.edu.univconstantine2.ntic.als.config;
 
 import org.springframework.context.annotation.Bean;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -20,6 +22,7 @@ import java.util.List;
 
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthFilter;
@@ -38,10 +41,14 @@ public class SecurityConfig {
                 .requestMatchers("/", "/index.html", "/favicon.svg", "/icons.svg").permitAll()
                 .requestMatchers("/assets/**").permitAll()
                 .requestMatchers("/api/auth/**").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/auth/logout").authenticated()
                 .requestMatchers(HttpMethod.GET, "/api/files/**").authenticated()
                 .requestMatchers(HttpMethod.POST, "/api/files/**").authenticated()
                 .requestMatchers("/api/users/me/**").authenticated()
+                .requestMatchers(HttpMethod.DELETE, "/api/users/me").authenticated()
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                .requestMatchers("/actuator/**").hasRole("ADMIN")
+                .requestMatchers("/api/instructor/**").hasAnyRole("INSTRUCTOR", "ADMIN")
                 .requestMatchers(HttpMethod.GET, "/api/courses/**").hasAnyRole("LEARNER", "INSTRUCTOR", "ADMIN")
                 .requestMatchers(HttpMethod.POST, "/api/courses/**").hasAnyRole("INSTRUCTOR", "ADMIN")
                 .requestMatchers(HttpMethod.PUT, "/api/courses/**").hasAnyRole("INSTRUCTOR", "ADMIN")
@@ -50,7 +57,16 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/modules/**").hasAnyRole("INSTRUCTOR", "ADMIN")
                 .requestMatchers(HttpMethod.PUT, "/api/modules/**").hasAnyRole("INSTRUCTOR", "ADMIN")
                 .requestMatchers(HttpMethod.DELETE, "/api/modules/**").hasAnyRole("INSTRUCTOR", "ADMIN")
+                .requestMatchers(HttpMethod.GET, "/api/questions/**").hasAnyRole("INSTRUCTOR", "ADMIN")
+                .requestMatchers(HttpMethod.POST, "/api/questions/**").hasAnyRole("INSTRUCTOR", "ADMIN")
+                .requestMatchers(HttpMethod.PUT, "/api/questions/**").hasAnyRole("INSTRUCTOR", "ADMIN")
+                .requestMatchers(HttpMethod.DELETE, "/api/questions/**").hasAnyRole("INSTRUCTOR", "ADMIN")
                 .requestMatchers("/api/enrollments/**").hasRole("LEARNER")
+                .requestMatchers("/api/chat/**").hasRole("LEARNER")
+                .requestMatchers("/api/notifications/**").hasRole("LEARNER")
+                .requestMatchers("/api/recommendations/**").hasRole("LEARNER")
+                .requestMatchers("/api/adaptive/**").hasRole("LEARNER")
+                .requestMatchers(HttpMethod.GET, "/**").permitAll()
                 .anyRequest().authenticated()
             )
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
@@ -58,10 +74,13 @@ public class SecurityConfig {
         return http.build();
     }
 
+    @Value("${app.security.cors.allowed-origins:http://localhost:5173}")
+    private String allowedOrigins;
+
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOriginPatterns(List.of("http://localhost:5173", "https://*.vercel.app"));
+        configuration.setAllowedOriginPatterns(List.of(allowedOrigins.split(",")));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);

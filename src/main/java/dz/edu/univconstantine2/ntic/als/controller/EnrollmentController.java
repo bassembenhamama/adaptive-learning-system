@@ -1,63 +1,47 @@
 package dz.edu.univconstantine2.ntic.als.controller;
 
+import dz.edu.univconstantine2.ntic.als.dto.EnrollmentResponseDTO;
 import dz.edu.univconstantine2.ntic.als.dto.ErrorResponse;
-import dz.edu.univconstantine2.ntic.als.model.Enrollment;
-import dz.edu.univconstantine2.ntic.als.model.Course;
-import dz.edu.univconstantine2.ntic.als.model.User;
-import dz.edu.univconstantine2.ntic.als.repository.EnrollmentRepository;
-import dz.edu.univconstantine2.ntic.als.repository.CourseRepository;
-import dz.edu.univconstantine2.ntic.als.repository.UserRepository;
+import dz.edu.univconstantine2.ntic.als.dto.ModuleAccessDTO;
+import dz.edu.univconstantine2.ntic.als.service.EnrollmentService;
+import dz.edu.univconstantine2.ntic.als.service.ModuleAccessService;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.NoSuchElementException;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/enrollments")
+@RequiredArgsConstructor
 public class EnrollmentController {
 
-    private final EnrollmentRepository enrollmentRepository;
-    private final CourseRepository courseRepository;
-    private final UserRepository userRepository;
-
-    public EnrollmentController(EnrollmentRepository enrollmentRepository,
-                                CourseRepository courseRepository,
-                                UserRepository userRepository) {
-        this.enrollmentRepository = enrollmentRepository;
-        this.courseRepository = courseRepository;
-        this.userRepository = userRepository;
-    }
+    private final EnrollmentService enrollmentService;
+    private final ModuleAccessService moduleAccessService;
 
     @PostMapping("/enroll/{courseId}")
     public ResponseEntity<?> enroll(@PathVariable String courseId) {
-        User user = getAuthenticatedUser();
-        Course course = courseRepository.findById(courseId).orElse(null);
-
-        if (course == null) {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        try {
+            return ResponseEntity.status(HttpStatus.CREATED).body(enrollmentService.enroll(courseId, email));
+        } catch (NoSuchElementException ex) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(new ErrorResponse(404, "Course not found."));
-        }
-
-        if (enrollmentRepository.findByUserAndCourse(user, course).isPresent()) {
+        } catch (IllegalStateException ex) {
             return ResponseEntity.status(HttpStatus.CONFLICT)
-                    .body(new ErrorResponse(409, "You are already enrolled in this course."));
+                    .body(new ErrorResponse(409, ex.getMessage()));
         }
-
-        Enrollment enrollment = new Enrollment();
-        enrollment.setUser(user);
-        enrollment.setCourse(course);
-        enrollment.setCompletedModuleIds("");
-        enrollment.setScore(0);
-
-        return ResponseEntity.status(HttpStatus.CREATED).body(enrollmentRepository.save(enrollment));
     }
 
     @GetMapping("/me")
-    public ResponseEntity<List<Enrollment>> getMyEnrollments() {
-        User user = getAuthenticatedUser();
-        return ResponseEntity.ok(enrollmentRepository.findByUser(user));
+    public ResponseEntity<List<EnrollmentResponseDTO>> getMyEnrollments() {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        return ResponseEntity.ok(enrollmentService.getMyEnrollments(email));
     }
 
     @PostMapping("/{enrollmentId}/complete-module")
@@ -66,33 +50,27 @@ public class EnrollmentController {
             @RequestParam String moduleId,
             @RequestParam(required = false) Integer score,
             @RequestParam(required = false) Integer threshold) {
-
-        Enrollment enrollment = enrollmentRepository.findById(enrollmentId).orElse(null);
-        if (enrollment == null) {
+        try {
+            return ResponseEntity.ok(enrollmentService.completeModule(enrollmentId, moduleId, score, threshold));
+        } catch (NoSuchElementException ex) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(new ErrorResponse(404, "Enrollment not found."));
         }
-
-        boolean passed = true;
-        if (score != null && threshold != null) {
-            passed = score >= threshold;
-        }
-
-        if (passed) {
-            String completed = enrollment.getCompletedModuleIds();
-            if (completed == null) completed = "";
-            if (!completed.contains(moduleId)) {
-                completed = completed.isEmpty() ? moduleId : completed + "," + moduleId;
-                enrollment.setCompletedModuleIds(completed);
-            }
-        }
-
-        enrollmentRepository.save(enrollment);
-        return ResponseEntity.ok(enrollment);
     }
 
-    private User getAuthenticatedUser() {
-        String email = SecurityContextHolder.getContext().getAuthentication().getName();
-        return userRepository.findByEmail(email).orElseThrow();
+    /**
+     * GET /api/enrollments/{enrollmentId}/access/{moduleId}
+     * Returns whether the learner can access a given module (prerequisite check).
+     * Task 8-K / FR-V02.
+     */
+    @GetMapping("/{enrollmentId}/access/{moduleId}")
+    public ResponseEntity<ModuleAccessDTO> checkModuleAccess(
+            @PathVariable String enrollmentId,
+            @PathVariable String moduleId) {
+        try {
+            return ResponseEntity.ok(moduleAccessService.canAccess(enrollmentId, moduleId));
+        } catch (NoSuchElementException ex) {
+            return ResponseEntity.notFound().build();
+        }
     }
 }

@@ -2,11 +2,25 @@ package dz.edu.univconstantine2.ntic.als.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
+import lombok.*;
 
+import java.util.List;
+
+@Data
+@EqualsAndHashCode(callSuper=true)
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 @Entity
 @Table(name = "courses")
+@org.hibernate.annotations.SQLDelete(sql = "UPDATE courses SET deleted = TRUE WHERE id = ?")
+@org.hibernate.annotations.SQLRestriction("deleted = FALSE OR deleted IS NULL")
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
-public class Course {
+public class Course extends Auditable {
+
+    @Column(name = "deleted")
+    @Builder.Default
+    private Boolean deleted = false;
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -23,31 +37,20 @@ public class Course {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "instructor_id")
     @JsonIgnoreProperties({"password", "email", "role", "initials"})
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     private User instructor;
 
-    @OneToMany(mappedBy = "course", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "course", cascade = CascadeType.ALL)
     @JsonIgnoreProperties({"course"})
     @OrderBy("displayOrder ASC")
-    private java.util.List<Module> modules;
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private List<Module> modules;
 
-    public String getId() { return id; }
-    public void setId(String id) { this.id = id; }
-
-    public String getTitle() { return title; }
-    public void setTitle(String title) { this.title = title; }
-
-    public String getCategory() { return category; }
-    public void setCategory(String category) { this.category = category; }
-
-    public String getDescription() { return description; }
-    public void setDescription(String description) { this.description = description; }
-
-    public String getGradient() { return gradient; }
-    public void setGradient(String gradient) { this.gradient = gradient; }
-
-    public User getInstructor() { return instructor; }
-    public void setInstructor(User instructor) { this.instructor = instructor; }
-
-    public java.util.List<Module> getModules() { return modules; }
-    public void setModules(java.util.List<Module> modules) { this.modules = modules; }
+    @OneToMany(mappedBy = "course")
+    @JsonIgnoreProperties({"course", "user"})
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private List<Enrollment> enrollments;
 }

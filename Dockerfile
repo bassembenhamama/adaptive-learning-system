@@ -1,14 +1,25 @@
-# Build Stage
-FROM maven:3.9.6-eclipse-temurin-21 AS build
-WORKDIR /app
-COPY pom.xml .
+# Stage 1: Build inside Docker (eliminates host dependency)
+FROM eclipse-temurin:21-jdk-alpine AS builder
+WORKDIR /workspace
+COPY .mvn .mvn
+COPY mvnw pom.xml ./
+RUN chmod +x mvnw && ./mvnw dependency:go-offline -q
 COPY src ./src
 COPY frontend ./frontend
-RUN mvn clean package -DskipTests
+RUN ./mvnw clean package -DskipTests -q
 
-# Run Stage
-FROM eclipse-temurin:21-jre
+# Stage 2: Minimal hardened runtime
+FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
-COPY --from=build /app/target/*.jar app.jar
+RUN addgroup -S spring && adduser -S spring -G spring
+RUN mkdir -p /app/uploads && chown spring:spring /app/uploads
+USER spring:spring
+COPY --from=builder /workspace/target/*.jar app.jar
 EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "app.jar"]
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
+  CMD wget -qO- http://localhost:8080/actuator/health || exit 1
+ENTRYPOINT ["java", \
+  "-XX:+UseZGC", \
+  "-XX:MaxRAMPercentage=75.0", \
+  "-Dspring.profiles.active=prod", \
+  "-jar", "app.jar"]

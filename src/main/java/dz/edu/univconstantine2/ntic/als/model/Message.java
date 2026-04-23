@@ -25,7 +25,7 @@ public class Message extends Auditable {
     @Column(name = "user_query", columnDefinition = "TEXT", nullable = false)
     private String userQuery;
 
-    @Column(name = "ai_response", columnDefinition = "LONGTEXT", nullable = false)
+    @Column(name = "ai_response", columnDefinition = "TEXT", nullable = false)
     private String aiResponse;
 
     @Column(name = "was_out_of_context", nullable = false)

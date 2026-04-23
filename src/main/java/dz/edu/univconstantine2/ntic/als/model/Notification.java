@@ -36,7 +36,7 @@ public class Notification extends Auditable {
     private String moduleTitle;
 
     /** Main notification body — AI-generated or static */
-    @Column(columnDefinition = "LONGTEXT", nullable = false)
+    @Column(columnDefinition = "TEXT", nullable = false)
     private String content;
 
     @Enumerated(EnumType.STRING)
